@@ -1,29 +1,17 @@
 const mongoose = require('mongoose');
 
 const vehiculeSchema = new mongoose.Schema({
-    marque: {
+    vin: {
         type: String,
-        required: [true, "La marque du véhicule est requise"]
+        unique: true,
+        sparse: true // Permet des valeurs nulles si le VIN est inconnu
     },
-    modele: {
-        type: String,
-        required: [true, "Le modèle du véhicule est requis"]
-    },
-    annee: {
-        type: Number,
-        required: [true, "L'année du véhicule est requise"]
-    },
-    type_moteur: {
-        type: String,
-        enum: ['essence', 'diesel'],
-        required: [true, "Le type de moteur est requis"]
-    },
-    date_ajout: {
-        type: Date,
-        default: Date.now
-    }
+    marque: { type: String, required: true },
+    modele: { type: String, required: true },
+    annee: { type: Number, required: true },
+    type_moteur: { type: String, enum: ['essence', 'diesel'], required: true },
+    type_vehicule: { type: mongoose.Schema.Types.ObjectId, ref: 'TypeVehicule', required: true },
+    date_ajout: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Vehicules', vehiculeSchema);
-
-
+module.exports = mongoose.model('Vehicule', vehiculeSchema);
