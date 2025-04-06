@@ -43,6 +43,7 @@ app.use('/mecanicien/rendez-vous', require('./routes/mecanicien/SuiviReparationR
 // ---------- Routes profil manager -----------
 app.use('/services-proposes', require('./routes/manager/ServiceProposeRoutes'));
 app.use('/dashboard', require('./routes/manager/statsRoutes'));
+app.use('/pieces', require('./routes/manager/pieceRoutes'));
 
 
 
