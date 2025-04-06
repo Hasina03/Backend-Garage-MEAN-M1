@@ -10,6 +10,10 @@ const prestationSchema = new mongoose.Schema({
     nom: { type: String, required: true },
     description: { type: String, required: true },
     prix_main_oeuvre: { type: Number, required: true },
+    supplementMainOeuvre: [{
+        typeVehicule: { type: mongoose.Schema.Types.ObjectId, ref: 'TypeVehicule' },
+        supplement: { type: Number, required: true }
+    }],
     processus: [processusSchema]
 });
 
