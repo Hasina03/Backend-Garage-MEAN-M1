@@ -110,4 +110,13 @@ exports.deleteCompatibilite = async (req, res) => {
     }
 };
 
+exports.getVehicules = async (req, res) => {
+    try {
+        const vehicules = await Vehicule.find().populate('type_vehicule');
+        res.json(vehicules);
+      } catch (err) {
+        res.status(500).json({ message: err.message });
+      }
+  };
+
 
