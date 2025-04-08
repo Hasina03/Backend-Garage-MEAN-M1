@@ -1,11 +1,6 @@
 const mongoose = require('mongoose');
 
 const vehiculeSchema = new mongoose.Schema({
-    vin: {
-        type: String,
-        unique: true,
-        sparse: true // Permet des valeurs nulles si le VIN est inconnu
-    },
     marque: { type: String, required: true },
     modele: { type: String, required: true },
     annee: { type: Number, required: true },

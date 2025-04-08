@@ -1,31 +1,93 @@
 const RendezVous = require('../../models/RendezVous');
 const Piece = require('../../models/Piece'); // Ajuste le chemin en fonction de l'emplacement de ton fichier
+const Vehicule = require('../../models/Vehicules');
+const TypeVehicule = require('../../models/TypeVehicule'); 
 
+const searchOrCreateVehicule = async (req, res) => {
+    const { marque, modele, annee, type_moteur, type_vehicule } = req.body;
 
+    if (!marque || !modele || !annee || !type_moteur || !type_vehicule) {
+        return res.status(400).json({ message: "Tous les champs sont requis." });
+    }
+
+    try {
+       
+        let vehicule = await Vehicule.findOne({
+            marque: { $regex: new RegExp(marque, "i") }, 
+            modele: { $regex: new RegExp(modele, "i") },
+            annee,
+            type_moteur,
+            type_vehicule
+        });
+
+      
+        if (!vehicule && marque === "Nisanee") {
+            marque = "Nissan"; 
+            vehicule = await Vehicule.findOne({
+                marque: { $regex: new RegExp(marque, "i") },
+                modele: { $regex: new RegExp(modele, "i") },
+                annee,
+                type_moteur,
+                type_vehicule
+            });
+        }
+
+        if (!vehicule) {
+            vehicule = new Vehicule({ marque, modele, annee, type_moteur, type_vehicule });
+            await vehicule.save();
+        }
+
+        res.status(200).json({ vehicule_id: vehicule._id, message: "Véhicule trouvé ou créé" });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
 
 const addRendezVous = async (req, res) => {
     try {
         const { client_id, mecanicien_id, vehicule_id, date_rdv, prestations } = req.body;
 
-        if (!client_id || !vehicule_id || !date_rdv || !prestations) {
+
+        if (!client_id || !date_rdv || !prestations || !vehicule_id) {
             return res.status(400).json({ message: "Tous les champs sont requis." });
         }
 
-   
+        let vehiculeTrouve = await Vehicule.findOne({
+            marque: { $regex: new RegExp(vehicule_id.marque, "i") }, 
+            modele: { $regex: new RegExp(vehicule_id.modele, "i") }, 
+            annee: vehicule_id.annee,
+            type_moteur: vehicule_id.type_moteur,
+            type_vehicule: vehicule_id.type 
+        });
+
+        let rendezVousData = {
+            client_id,
+            mecanicien_id: mecanicien_id || null,
+            date_rdv,
+            prestations,
+        };
+
+        if (vehiculeTrouve) {
+        
+            rendezVousData.vehicule_enregistrer = vehiculeTrouve._id;
+        } else {
+         
+            rendezVousData.vehicule_id = {
+                modele: vehicule_id.modele,
+                annee: vehicule_id.annee,
+                marque: vehicule_id.marque,
+                type: vehicule_id.type,
+                type_moteur: vehicule_id.type_moteur
+            };
+        }
+
         for (const prestation of prestations) {
             if (!prestation.prestation_id) {
                 return res.status(400).json({ message: "Chaque prestation doit avoir un prestation_id." });
             }
         }
 
-        const newRendezVous = new RendezVous({
-            client_id,
-            mecanicien_id,
-            vehicule_id,
-            date_rdv,
-            prestations
-        });
-
+        const newRendezVous = new RendezVous(rendezVousData);
         await newRendezVous.save();
 
         res.status(201).json({ message: "Rendez-vous créé avec succès", rendezVous: newRendezVous });
@@ -33,6 +95,7 @@ const addRendezVous = async (req, res) => {
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 };
+
 
 const deleteRendezVous = async (req, res) => {
     try {
@@ -52,7 +115,6 @@ const ajouterMecanicienARendezVous = async (req, res) => {
             return res.status(400).json({ error: "L'ID du rendez-vous est requis." });
         }
 
-        // Vérifie si l'ID du mécanicien est bien transmis
         if (!mecanicienId) {
             console.log("Erreur : aucun ID de mécanicien reçu.");
             return res.status(400).json({ error: "L'ID du mécanicien est requis." });
@@ -102,7 +164,7 @@ const getRendezVous = async (req, res) => {
         const rendezVous = await RendezVous.find().populate('client_id', 'nom prenom email').populate('vehicule_id', 'marque modele annee immatriculation kilometrage ').populate('mecanicien_id', 'nom prenom').populate('prestations.prestation_id', 'nom').populate('prestations.prestation_id', 'nom').populate({
             path: 'vehicule_id',
             populate: { path: 'type', select: 'nom' }
-        });
+        }).populate('vehicule_enregistrer','marque modele annee type_moteur type_vehicule');
         res.status(200).json(rendezVous);
     } catch (error) {
         res.status(500).json({ message: "Erreur serveur", error: error.message });
@@ -265,6 +327,24 @@ const genererfacture = async (req, res) => {
 
 
 
+const getAllTypeVehicule = async (req, res) => {
+    try {
+        // 🔍 Recherche de tous les types de véhicules dans la base de données
+        const typesVehicules = await TypeVehicule.find();
+
+        if (!typesVehicules.length) {
+            return res.status(404).json({ message: "Aucun type de véhicule trouvé" });
+        }
+
+        res.status(200).json({ typesVehicules });
+    } catch (error) {
+        console.error('Erreur lors de la récupération des types de véhicules', error);
+        res.status(500).json({ message: "Erreur serveur", error: error.message });
+    }
+};
+
+
+
 module.exports = {
     addRendezVous,
     deleteRendezVous,
@@ -275,5 +355,7 @@ module.exports = {
     updateStatutRdv,
     updateDateRdv,
     getRendezVousByClientId,
-    genererfacture
+    genererfacture,
+    searchOrCreateVehicule,
+    getAllTypeVehicule
 };
