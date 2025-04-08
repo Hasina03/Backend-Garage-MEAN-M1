@@ -7,6 +7,7 @@ router.get('/:id/compatibilites', pieceController.getPieceCompatibilites);
 router.put('/compatibilites/update', pieceController.updateCompatibilite);
 router.patch('/compatibilites/add-stock', pieceController.addStockToCompatibilite);
 router.post('/compatibilites/add', pieceController.addCompatibilite);
+router.get('/compatibilites/add/vehicules', pieceController.getVehicules);
 router.delete('/:pieceId/compatibilites/:vehiculeId', pieceController.deleteCompatibilite);
 
 module.exports = router;
