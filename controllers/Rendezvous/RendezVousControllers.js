@@ -76,7 +76,8 @@ const addRendezVous = async (req, res) => {
                 modele: vehicule_id.modele,
                 annee: vehicule_id.annee,
                 marque: vehicule_id.marque,
-                type: vehicule_id.type,
+                type: vehicule_id.type ,
+                type_autre: vehicule_id.type_autre || '', 
                 type_moteur: vehicule_id.type_moteur
             };
         }
@@ -254,76 +255,71 @@ const updateRendezVous = async (req, res) => {
         res.status(500).json({ message: "Erreur serveur", error: error.message });
     }
 }
+
+
 const genererfacture = async (req, res) => {
     try {
         const { rendezVousId } = req.body; 
         const rendezVous = await RendezVous.findById(rendezVousId)
             .populate('prestations.prestation_id')
-            .populate('vehicule_id.type')
             .exec();
 
         if (!rendezVous) {
             return res.status(404).json({ message: 'Rendez-vous non trouvé.' });
         }
 
-       
         let totalFacture = 0;
 
         for (let prestation of rendezVous.prestations) {
             const prestationDetails = prestation.prestation_id;
             if (prestationDetails) {
-                totalFacture += prestationDetails.prix_main_oeuvre;
+                totalFacture += prestationDetails.prix_main_oeuvre || 0;
             }
         }
 
-     
         const vehicule = rendezVous.vehicule_id;
-        const typeVehicule = vehicule.type; 
-
+        const typeVehicule = vehicule?.type || null;
 
         let piecesFacture = [];
-        if (vehicule) {
-            for (let prestation of rendezVous.prestations) {
-                const prestationDetails = prestation.prestation_id;
-                if (prestationDetails && prestationDetails.processus) {
-                    for (let processus of prestationDetails.processus) {
-                        for (let piece of processus.pieces_possibles) {
-                           
-                            console.log('Vérification de la pièce:', piece);
-                            const pieceDisponible = await Piece.findById(piece._id);
-                            if (!pieceDisponible) {
-                                console.log('Pièce non trouvée:', piece._id);
-                                continue; 
-                            }
+if (Array.isArray(rendezVous.prestations)) {
+    for (let prestation of rendezVous.prestations) {
+        const prestationDetails = prestation.prestation_id;
+        if (!prestationDetails?.processus) continue;
 
-                            const pieceVariante = pieceDisponible.variantes.find(variante => String(variante.type_vehicule) === String(typeVehicule._id));
-                            if (pieceVariante) {
-                                piecesFacture.push({
-                                    nom: pieceDisponible.nom,
-                                    prix: pieceVariante.prix
-                                });
-                                totalFacture += pieceVariante.prix; 
-                            } else {
-                                console.log('Aucune variante trouvée pour la pièce:', pieceDisponible.nom);
-                            }
-                        }
-                    }
+        for (let processus of prestationDetails.processus) {
+            for (let pieceRef of processus.pieces_possibles) {
+                const pieceDisponible = await Piece.findById(pieceRef._id);
+                if (!pieceDisponible) continue;
+                let pieceVariante = null;
+                if (Array.isArray(pieceDisponible.variantes) && typeVehicule) {
+                    pieceVariante = pieceDisponible.variantes.find(v => String(v.type_vehicule) === String(typeVehicule._id));
                 }
+
+                piecesFacture.push({
+                    nom: pieceDisponible.nom,
+                    prix: pieceVariante?.prix || pieceDisponible.prix || 0
+                });
+
+                totalFacture += pieceVariante?.prix || pieceDisponible.prix || 0;
             }
         }
+    }
+}
 
-        // Retourner la facture
+
         res.status(200).json({
-            prestation: rendezVous.prestations,
-            vehicule: vehicule,
+            prestations: rendezVous.prestations, // attention au pluriel
+            vehicule,
             pieces: piecesFacture,
             total: totalFacture
         });
+
     } catch (error) {
         console.error('Erreur lors de la génération de la facture:', error);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 };
+
 
 
 
