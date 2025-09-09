@@ -2,21 +2,21 @@ const Piece = require('../../models/Piece');
 
 const addPiece = async (req, res) => {
     try {
-        const { nom, variantes } = req.body;
+        const { nom,compatibilites} = req.body;
 
-        if (!nom || !Array.isArray(variantes) || variantes.length === 0) {
+        if (!nom || !Array.isArray(compatibilites) || compatibilites.length === 0) {
             return res.status(400).json({ message: "Tous les champs sont requis et 'variantes' doit être un tableau non vide" });
         }
 
-        for (const variante of variantes) {
-            if (!variante.prix || !variante.type_vehicule) {
+        for (const variante of compatibilites) {
+            if (!variante.vehicule || !variante.prix) {
                 return res.status(400).json({ message: "Chaque variante doit contenir un prix et un type de véhicule" });
             }
         }
 
         const newPiece = new Piece({
             nom,
-            variantes
+            compatibilites
         });
 
         await newPiece.save();
@@ -28,7 +28,8 @@ const addPiece = async (req, res) => {
 
 const getPieces = async (req, res) => {
     try {
-        const pieces = await Piece.find().populate('variantes.type_vehicule', 'marque modele annee type_moteur');
+        const pieces = await Piece.find().populate('compatibilites.vehicule', 'marque modele annee type_moteur')
+
         res.status(200).json(pieces);
     } catch (error) {
         res.status(500).json({ message: "Erreur serveur", error: error.message });

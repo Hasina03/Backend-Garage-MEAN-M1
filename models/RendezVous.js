@@ -20,7 +20,8 @@
                 modele: { type: String },
                 annee: { type: Number},
                 marque: { type: String},
-                type: { type: mongoose.Schema.Types.ObjectId, ref: 'TypeVehicule'},
+                type: { type: mongoose.Schema.Types.ObjectId, ref: 'TypeVehicule',required: false },
+                type_autre: { type: String, required: false },
                 type_moteur: {
                     type: String,
                     enum: ['essence', 'diesel'],
