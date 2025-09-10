@@ -56,8 +56,7 @@ const addRendezVous = async (req, res) => {
             marque: { $regex: new RegExp(vehicule_id.marque, "i") }, 
             modele: { $regex: new RegExp(vehicule_id.modele, "i") }, 
             annee: vehicule_id.annee,
-            type_moteur: vehicule_id.type_moteur,
-            type_vehicule: vehicule_id.type 
+            type_moteur: vehicule_id.type_moteur
         });
 
         let rendezVousData = {
@@ -256,68 +255,81 @@ const updateRendezVous = async (req, res) => {
     }
 }
 
-
 const genererfacture = async (req, res) => {
-    try {
-        const { rendezVousId } = req.body; 
-        const rendezVous = await RendezVous.findById(rendezVousId)
-            .populate('prestations.prestation_id')
-            .exec();
-
-        if (!rendezVous) {
-            return res.status(404).json({ message: 'Rendez-vous non trouvé.' });
+  try {
+    const { rendezVousId } = req.body; 
+    const rendezVous = await RendezVous.findById(rendezVousId)
+      .populate({
+        path: "prestations.prestation_id",
+        populate: {
+          path: "processus.pieces_possibles",
+          model: "Piece"
         }
+      })
+      .populate("vehicule_enregistrer")
+      .exec();
 
-        let totalFacture = 0;
+    if (!rendezVous) {
+      return res.status(404).json({ message: "Rendez-vous non trouvé." });
+    }
 
-        for (let prestation of rendezVous.prestations) {
-            const prestationDetails = prestation.prestation_id;
-            if (prestationDetails) {
-                totalFacture += prestationDetails.prix_main_oeuvre || 0;
-            }
-        }
+    let totalFacture = 0;
+    let piecesFacture = [];
 
-        const vehicule = rendezVous.vehicule_id;
-        const typeVehicule = vehicule?.type || null;
+    const vehicule = rendezVous.vehicule_enregistrer;
+    const typeVehicule = vehicule?.type || null;
 
-        let piecesFacture = [];
-if (Array.isArray(rendezVous.prestations)) {
+    // 🔹 Boucle sur les prestations
     for (let prestation of rendezVous.prestations) {
-        const prestationDetails = prestation.prestation_id;
-        if (!prestationDetails?.processus) continue;
+      const prestationDetails = prestation.prestation_id;
+      if (!prestationDetails) continue;
 
-        for (let processus of prestationDetails.processus) {
-            for (let pieceRef of processus.pieces_possibles) {
-                const pieceDisponible = await Piece.findById(pieceRef._id);
-                if (!pieceDisponible) continue;
-                let pieceVariante = null;
-                if (Array.isArray(pieceDisponible.variantes) && typeVehicule) {
-                    pieceVariante = pieceDisponible.variantes.find(v => String(v.type_vehicule) === String(typeVehicule._id));
-                }
+      // Prix de la main d’œuvre
+      totalFacture += prestationDetails.prix_main_oeuvre || 0;
 
-                piecesFacture.push({
-                    nom: pieceDisponible.nom,
-                    prix: pieceVariante?.prix || pieceDisponible.prix || 0
-                });
+      // Boucle sur les étapes du processus
+      for (let processus of prestationDetails.processus) {
+        for (let piece of processus.pieces_possibles) {
+          if (!piece) continue;
 
-                totalFacture += pieceVariante?.prix || pieceDisponible.prix || 0;
-            }
+          // Recherche compatibilité
+          let pieceVariante = null;
+          if (Array.isArray(piece.compatibilites) && vehicule?._id) {
+            pieceVariante = piece.compatibilites.find(
+              c => String(c.vehicule) === String(vehicule._id)
+            );
+          }
+
+          const prixPiece = pieceVariante?.prix || 0;
+
+          piecesFacture.push({
+            prestation: prestationDetails.nom,
+            etape: processus.nom_etape,
+            nom: piece.nom,
+            prix: prixPiece
+          });
+
+          totalFacture += prixPiece;
         }
+      }
     }
-}
 
+   res.status(200).json({
+  rendezVousId,
+  vehicule,
+  prestations: rendezVous.prestations.map(p => ({
+    nom: p.prestation_id?.nom || "",
+    description: p.prestation_id?.description || "",
+    prix_main_oeuvre: p.prestation_id?.prix_main_oeuvre || 0
+  })),
+  pieces: piecesFacture,
+  total: totalFacture
+});
 
-        res.status(200).json({
-            prestations: rendezVous.prestations, // attention au pluriel
-            vehicule,
-            pieces: piecesFacture,
-            total: totalFacture
-        });
-
-    } catch (error) {
-        console.error('Erreur lors de la génération de la facture:', error);
-        res.status(500).json({ message: 'Erreur serveur.' });
-    }
+  } catch (error) {
+    console.error("Erreur lors de la génération de la facture:", error);
+    res.status(500).json({ message: "Erreur serveur." });
+  }
 };
 
 
@@ -325,7 +337,6 @@ if (Array.isArray(rendezVous.prestations)) {
 
 const getAllTypeVehicule = async (req, res) => {
     try {
-        // 🔍 Recherche de tous les types de véhicules dans la base de données
         const typesVehicules = await TypeVehicule.find();
 
         if (!typesVehicules.length) {
